@@ -1,6 +1,6 @@
 # RAG Search Engine
 
-A search engine built as part of the [Retrieval Augmented Generation course](https://www.boot.dev/courses/build-a-rag-search-engine-python) on Boot.dev.
+A search engine built as part of the [Retrieval Augmented Generation course](www.boot.dev/) on Boot.dev.
 
 ## About
 

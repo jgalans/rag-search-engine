@@ -1,3 +1,8 @@
+Los bloques de código no se están renderizando bien porque puse las barras invertidas `\` para escaparlos en mi respuesta, pero se copiaron tal cual. 
+
+Edita el README en GitHub y reemplaza el contenido por esto exactamente:
+
+````markdown
 # RAG Search Engine
 
 A search engine built as part of the [Retrieval Augmented Generation course](https://www.boot.dev/courses/build-a-rag-search-engine-python) on Boot.dev.
@@ -8,12 +13,13 @@ This project is a hands-on implementation of a RAG (Retrieval Augmented Generati
 
 ## Setup
 
-\```bash
+```bash
 uv sync
-\```
+```
 
 ## Usage
 
-\```bash
+```bash
 uv run cli/keyword_search_cli.py search "your query here"
-\```
+```
+````

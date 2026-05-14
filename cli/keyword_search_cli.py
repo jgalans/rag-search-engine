@@ -70,6 +70,14 @@ class InvertedIndex:
         with open("cache/docmap.pkl", "wb") as f:    
             pickle.dump(self.docmap, f)
 
+    def load(self) -> None:
+        if not os.path.exists("cache/index.pkl") or not os.path.exists("cache/docmap.pkl"):
+            raise FileNotFoundError("Index files not found. Run 'build' first.")
+        with open("cache/index.pkl", "rb") as f:
+            self.index = pickle.load(f)
+        with open("cache/docmap.pkl", "rb") as f:
+            self.docmap = pickle.load(f)
+
 def main() -> None:
     with open("data/movies.json", "r") as f:
         movies = json.load(f)
@@ -89,23 +97,36 @@ def main() -> None:
 
     match args.command:
         case "search":
+            index = InvertedIndex(stopwords)
+            try:
+                index.load()
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
+                return
+            
             results = []
-            for movie in movies["movies"]:
-                if matches(args.query, movie["title"], stopwords):
-                    results.append(movie)
+            tokens = tokenize(args.query, stopwords)
 
-            results = results[:5]  # truncar a 5 resultados
+            for token in tokens:
+                for doc_id in index.get_documents(token):
+                    if doc_id not in [r["id"] for r in results]:  # Evita duplicados
+                        results.append(index.docmap[doc_id])
+                    if len(results) >= 5:  # Limita a 5 resultados
+                        break
+                if len(results) >= 5:
+                    break
 
             print(f"Searching for: {args.query}")
             for i, movie in enumerate(results, start=1):
-                print(f"{i}. {movie['title']}")
+                print(f"{i}. {movie['title']} (ID {movie['id']})")
 
         case "build":
             index = InvertedIndex(stopwords)
             index.build(movies["movies"])
             index.save()
-            docs = index.get_documents("merida")
-            print(f"First document for token 'merida' = {docs[0]}")
+            print("Index built successfully!")
+            #docs = index.get_documents("merida")
+            #print(f"First document for token 'merida' = {docs[0]}")
 
         case _:
             parser.print_help()

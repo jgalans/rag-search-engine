@@ -113,6 +113,33 @@ Both terms appear in *Kaakha..Kaakha: The Police*, but `anbuselvan` (the
 protagonist) is far more distinctive: it appears 18 times here and almost
 nowhere else in the dataset, while `police` shows up in 1591 of the 5000 movies.
 
+### `bm25idf`
+
+BM25 IDF — a refined version of the IDF above, and the first of three
+improvements BM25 makes over plain TF-IDF.
+
+```bash
+uv run cli/keyword_search_cli.py bm25idf cyborg
+```
+
+```
+BM25 IDF score of 'cyborg': 5.36
+```
+
+```bash
+uv run cli/keyword_search_cli.py bm25idf police
+```
+
+```
+BM25 IDF score of 'police': 1.14
+```
+
+For ordinary terms the two formulas land in almost the same place — compare
+these to the `idf` values above. They only diverge at the extremes: the BM25
+variant is derived from a probabilistic relevance model and stays well behaved
+for terms that appear in most of the collection, where the plain formula would
+otherwise collapse toward zero.
+
 ## How it works
 
 Queries and documents go through the same pipeline before being compared:

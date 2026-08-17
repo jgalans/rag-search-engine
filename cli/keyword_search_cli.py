@@ -131,7 +131,7 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     #search
-    search_parser = subparsers.add_parser("search", help="Search movies using BM25")
+    search_parser = subparsers.add_parser("search", help="Search movies by keyword")
     search_parser.add_argument("query", type=str, help="Search query")
     
     #build

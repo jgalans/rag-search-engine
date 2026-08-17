@@ -85,6 +85,34 @@ uv run cli/keyword_search_cli.py idf police
 Inverse document frequency of 'police': 1.14
 ```
 
+### `tfidf`
+
+TF-IDF — the product of the two scores above. It answers: *how important is this
+term to this specific document, relative to the whole collection?*
+
+A term scores high only when it appears often in the document **and** is rare
+elsewhere. Compare two terms in the same movie:
+
+```bash
+uv run cli/keyword_search_cli.py tfidf 1 police
+```
+
+```
+TF-IDF score of 'police' in document '1': 6.87
+```
+
+```bash
+uv run cli/keyword_search_cli.py tfidf 1 anbuselvan
+```
+
+```
+TF-IDF score of 'anbuselvan' in document '1': 140.84
+```
+
+Both terms appear in *Kaakha..Kaakha: The Police*, but `anbuselvan` (the
+protagonist) is far more distinctive: it appears 18 times here and almost
+nowhere else in the dataset, while `police` shows up in 1591 of the 5000 movies.
+
 ## How it works
 
 Queries and documents go through the same pipeline before being compared:

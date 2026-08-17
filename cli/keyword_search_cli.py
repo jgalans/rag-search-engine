@@ -6,6 +6,7 @@ import string
  y recuperarlo después. Es como "congelar" el objeto."""
 import pickle
 import os
+import math
 from nltk.stem import PorterStemmer
 from collections import Counter
 
@@ -60,8 +61,6 @@ class InvertedIndex:
             if token not in self.index:
                 self.index[token] = set()
             self.index[token].add(doc_id)
-        # Guarda el conteo de tokens para este documento
-        self.term_frequencies[doc_id] = Counter(tokens)
 
     def get_documents(self, term: str) -> list[int]:
         term = term.lower()
@@ -102,6 +101,17 @@ class InvertedIndex:
             return 0
         return self.term_frequencies[doc_id].get(term, 0)
 
+    def get_idf(self, term: str) -> float:
+        # Calcula el IDF (Inverse Document Frequency) para un término
+        # IDF = log(N+1 / df_t+1), donde N es el número total de documentos y df_t es el número de documentos que contienen el término t
+        # En este caso, N es el número de películas (len(self.docmap))
+        # df_t es el número de documentos que contienen el término t (len(self.index[term]))
+        N = len(self.docmap)
+        df_t = len(self.index.get(term, ()))
+        return math.log((N + 1) / (df_t + 1))
+
+    
+
 def main() -> None:
     with open("data/movies.json", "r") as f:
         movies = json.load(f)
@@ -123,6 +133,10 @@ def main() -> None:
     tf_parser = subparsers.add_parser("tf", help="Get term frequency for a term in a document")
     tf_parser.add_argument("doc_id", type=int, help="Document ID")
     tf_parser.add_argument("term", type=str, help="Term to look up")
+
+    #idf
+    idf_parser = subparsers.add_parser("idf", help="Get inverse document frequency for a term")
+    idf_parser.add_argument("term", type=str, help="Term to look up")
 
     args = parser.parse_args()
 
@@ -169,6 +183,17 @@ def main() -> None:
             term = tokenize_term(args.term, stopwords)
             tf = index.get_tf(args.doc_id, term)
             print(tf)
+
+        case "idf":
+            index = InvertedIndex(stopwords)
+            try:
+                index.load()
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
+                return
+            term = tokenize_term(args.term, stopwords)
+            idf = index.get_idf(term)
+            print(f"Inverse document frequency of '{args.term}': {idf:.2f}")
 
         case _:
             parser.print_help()

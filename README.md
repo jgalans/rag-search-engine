@@ -31,9 +31,9 @@ Run this first — the other commands load the index from that cache.
 uv run cli/keyword_search_cli.py build
 ```
 
-```
+<pre>
 Index built successfully!
-```
+</pre>
 
 ### `search`
 
@@ -43,14 +43,14 @@ Searches movies by keyword and returns up to 5 matches.
 uv run cli/keyword_search_cli.py search "cyborg"
 ```
 
-```
+<pre>
 Searching for: cyborg
 1. Superman: Unbound (ID 229)
 2. Code Name: S.T.E.A.M. (ID 250)
 3. Highlander: The Animated Series (ID 421)
 4. Eliminators (ID 638)
 5. Warrior of the Lost World (ID 950)
-```
+</pre>
 
 ### `tf`
 
@@ -60,9 +60,9 @@ Term frequency — how many times a term appears **in a single document**.
 uv run cli/keyword_search_cli.py tf 1 police
 ```
 
-```
+<pre>
 6
-```
+</pre>
 
 ### `idf`
 
@@ -73,17 +73,17 @@ Common terms score low, rare terms score high.
 uv run cli/keyword_search_cli.py idf cyborg
 ```
 
-```
+<pre>
 Inverse document frequency of 'cyborg': 5.34
-```
+</pre>
 
 ```bash
 uv run cli/keyword_search_cli.py idf police
 ```
 
-```
+<pre>
 Inverse document frequency of 'police': 1.14
-```
+</pre>
 
 ### `tfidf`
 
@@ -97,17 +97,17 @@ elsewhere. Compare two terms in the same movie:
 uv run cli/keyword_search_cli.py tfidf 1 police
 ```
 
-```
+<pre>
 TF-IDF score of 'police' in document '1': 6.87
-```
+</pre>
 
 ```bash
 uv run cli/keyword_search_cli.py tfidf 1 anbuselvan
 ```
 
-```
+<pre>
 TF-IDF score of 'anbuselvan' in document '1': 140.84
-```
+</pre>
 
 Both terms appear in *Kaakha..Kaakha: The Police*, but `anbuselvan` (the
 protagonist) is far more distinctive: it appears 18 times here and almost

@@ -110,6 +110,14 @@ class InvertedIndex:
         df_t = len(self.index.get(term, ()))
         return math.log((N + 1) / (df_t + 1))
 
+    def get_tfidf(self, doc_id: int, term: str) -> float:
+        # Calcula el TF-IDF (Term Frequency - Inverse Document Frequency) para un término
+        # TFIDF = TF * IDF
+        # Frequent words get high TF scores
+        # Rare words get high IDF scores
+        tfidf = self.get_tf(doc_id, term) * self.get_idf(term)
+        return tfidf
+
     
 
 def main() -> None:
@@ -137,6 +145,11 @@ def main() -> None:
     #idf
     idf_parser = subparsers.add_parser("idf", help="Get inverse document frequency for a term")
     idf_parser.add_argument("term", type=str, help="Term to look up")
+
+    #tfidf
+    tfidf_parser = subparsers.add_parser("tfidf", help="Get TF-IDF score for a term in a document")
+    tfidf_parser.add_argument("doc_id", type=int, help="Document ID")
+    tfidf_parser.add_argument("term", type=str, help="Term to look up")
 
     args = parser.parse_args()
 
@@ -194,6 +207,17 @@ def main() -> None:
             term = tokenize_term(args.term, stopwords)
             idf = index.get_idf(term)
             print(f"Inverse document frequency of '{args.term}': {idf:.2f}")
+
+        case "tfidf":
+            index = InvertedIndex(stopwords)
+            try:
+                index.load()
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
+                return
+            term = tokenize_term(args.term, stopwords)
+            tfidf = index.get_tfidf(args.doc_id, term)
+            print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tfidf:.2f}")
 
         case _:
             parser.print_help()

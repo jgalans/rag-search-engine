@@ -140,6 +140,44 @@ variant is derived from a probabilistic relevance model and stays well behaved
 for terms that appear in most of the collection, where the plain formula would
 otherwise collapse toward zero.
 
+### `bm25tf`
+
+BM25 TF — a *saturating* version of term frequency, and the second improvement
+BM25 makes over plain TF-IDF.
+
+Raw TF grows without limit: a term appearing 100 times scores 100. BM25 instead
+feeds it through `(tf * (k1 + 1)) / (tf + k1)`, which rises quickly for the first
+few occurrences and then flattens out, approaching a ceiling of `k1 + 1`.
+
+```bash
+uv run cli/keyword_search_cli.py bm25tf 1 police
+```
+
+```
+BM25 TF score of 'police' in document '1': 2.00
+```
+
+```bash
+uv run cli/keyword_search_cli.py bm25tf 1 anbuselvan
+```
+
+```
+BM25 TF score of 'anbuselvan' in document '1': 2.31
+```
+
+Compare these to the raw counts: `police` appears 6 times in that movie and
+`anbuselvan` 18 — three times as often — yet the BM25 scores are 2.00 and 2.31.
+With `k1 = 1.5` the curve looks like this:
+
+| raw tf | 1 | 2 | 3 | 6 | 18 | 100 |
+|---|---|---|---|---|---|---|
+| BM25 tf | 1.00 | 1.43 | 1.67 | 2.00 | 2.31 | 2.46 |
+
+The intuition: the difference between a term appearing once and twice is
+meaningful, while the difference between 50 and 100 times is not. `k1` controls
+how fast the curve saturates — it defaults to `1.5` (`BM25_K1`) and can be passed
+as an optional third argument.
+
 ## How it works
 
 Queries and documents go through the same pipeline before being compared:

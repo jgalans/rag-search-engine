@@ -14,6 +14,7 @@ from collections import Counter
     que se encarga de comparar los tokens de la consulta con los tokens del título de la película."""
 stemmer = PorterStemmer()
 
+BM25_K1 = 1.5
 
 # =============================================================================
 # FUNCIONES DE PROCESAMIENTO DE TEXTO
@@ -143,6 +144,16 @@ class InvertedIndex:
         N = len(self.docmap)
         df = len(self.index.get(term, ()))
         return math.log((N - df + 0.5) / (df + 0.5) + 1)
+
+
+    def get_bm25_tf(self, doc_id, term, k1=BM25_K1) -> float:
+        """Calcula el BM25 TF para un término y un documento."""
+        tf = self.get_tf(doc_id, term)
+        tf_component = (tf * (k1 + 1)) / (tf + k1)
+        return tf_component
+
+
+
     
 def bm25_idf_command(term: str, stopwords: list[str] = []) -> float:
     """Comando CLI para calcular el BM25 IDF de un término."""
@@ -190,6 +201,12 @@ def main() -> None:
     #bm25idf
     bm25_idf_parser = subparsers.add_parser("bm25idf", help="Get BM25 IDF score for a given term")
     bm25_idf_parser.add_argument("term", type=str, help="Term to get BM25 IDF score for")
+
+    #bm25_tf
+    bm25_tf_parser = subparsers.add_parser("bm25tf", help="Get BM25 TF score for a given document ID and term")
+    bm25_tf_parser.add_argument("doc_id", type=int, help="Document ID")
+    bm25_tf_parser.add_argument("term", type=str, help="Term to get BM25 TF score for")
+    bm25_tf_parser.add_argument("k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter")
 
     args = parser.parse_args()
 
@@ -247,7 +264,15 @@ def main() -> None:
                 bm25idf = bm25_idf_command(args.term, stopwords)
                 print(f"BM25 IDF score of '{args.term}': {bm25idf:.2f}")
 
+            case "bm25tf":
+                index = InvertedIndex(stopwords)
+                index.load()
+                term = tokenize_term(args.term, stopwords)
+                bm25tf = index.get_bm25_tf(args.doc_id, term, args.k1)
+                print(f"BM25 TF score of '{args.term}' in document '{args.doc_id}': {bm25tf:.2f}")
+
             case _:
+                
                 parser.print_help()
 
     except FileNotFoundError as e:

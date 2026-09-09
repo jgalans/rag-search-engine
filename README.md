@@ -142,19 +142,24 @@ otherwise collapse toward zero.
 
 ### `bm25tf`
 
-BM25 TF — a *saturating* version of term frequency, and the second improvement
-BM25 makes over plain TF-IDF.
+BM25 TF — a *saturating*, length-normalized version of term frequency. It is the
+second and third improvement BM25 makes over plain TF-IDF, in one formula:
+
+```
+tf * (k1 + 1) / (tf + k1 * (1 - b + b * doc_length / avg_doc_length))
+```
 
 Raw TF grows without limit: a term appearing 100 times scores 100. BM25 instead
-feeds it through `(tf * (k1 + 1)) / (tf + k1)`, which rises quickly for the first
-few occurrences and then flattens out, approaching a ceiling of `k1 + 1`.
+rises quickly for the first few occurrences and then flattens out, approaching a
+ceiling of `k1 + 1`. The `b` term corrects for document length, so a long
+synopsis does not score highly just by having more room for words.
 
 ```bash
 uv run cli/keyword_search_cli.py bm25tf 1 police
 ```
 
 ```
-BM25 TF score of 'police' in document '1': 2.00
+BM25 TF score of 'police' in document '1': 2.09
 ```
 
 ```bash
@@ -162,26 +167,69 @@ uv run cli/keyword_search_cli.py bm25tf 1 anbuselvan
 ```
 
 ```
-BM25 TF score of 'anbuselvan' in document '1': 2.31
+BM25 TF score of 'anbuselvan' in document '1': 2.35
 ```
 
 Compare these to the raw counts: `police` appears 6 times in that movie and
-`anbuselvan` 18 — three times as often — yet the BM25 scores are 2.00 and 2.31.
-With `k1 = 1.5` the curve looks like this:
+`anbuselvan` 18 — three times as often — yet the scores are 2.09 and 2.35. The
+saturation curve for that document looks like this:
 
 | raw tf | 1 | 2 | 3 | 6 | 18 | 100 |
 |---|---|---|---|---|---|---|
-| BM25 tf | 1.00 | 1.43 | 1.67 | 2.00 | 2.31 | 2.46 |
+| BM25 tf | 1.15 | 1.57 | 1.79 | 2.09 | 2.35 | 2.47 |
 
 The intuition: the difference between a term appearing once and twice is
 meaningful, while the difference between 50 and 100 times is not. `k1` controls
-how fast the curve saturates — it defaults to `1.5` (`BM25_K1`) and can be passed
-as an optional third argument.
+how fast the curve saturates (default `1.5`), and `b` how strongly document
+length is corrected for (default `0.75`, where `0` disables it entirely). Both
+can be passed as optional arguments.
+
+### `bm25search`
+
+Full BM25 ranking — the three improvements above, applied to a real search.
+
+A document's score is the **sum** of its BM25 over every token in the query, so
+matching more query terms ranks higher. Only documents containing at least one
+query token are scored; the rest never enter the ranking.
+
+```bash
+uv run cli/keyword_search_cli.py bm25search "animated family"
+```
+
+```
+1. (2929) Gakuen Alice - Score: 7.35
+2. (2275) Day of the Animals - Score: 7.13
+3. (1907) Fantastic Mr. Fox - Score: 6.92
+4. (1125) The Jungle Book - Score: 6.77
+5. (2665) Sing - Score: 6.75
+```
+
+```bash
+uv run cli/keyword_search_cli.py bm25search "cyborg police"
+```
+
+```
+1. (638) Eliminators - Score: 11.35
+2. (2660) Metal Gear Rising: Revengeance - Score: 11.13
+3. (4941) Justice League: Throne of Atlantis - Score: 10.97
+4. (1267) Justice League vs. Teen Titans - Score: 10.70
+5. (4443) Justice League: The Flashpoint Paradox - Score: 10.03
+```
+
+Contrast this with `search`, which returns the first five documents containing
+any query token, in index order. Same index, same tokens — but `bm25search`
+answers "which of these are most relevant?" instead of "which of these match?".
 
 ## How it works
 
 Queries and documents go through the same pipeline before being compared:
 lowercasing → punctuation removal → stop word filtering (`data/stopwords.txt`) → stemming (Porter).
+
+The stop word list is put through the same lowercasing and punctuation removal as
+the text itself. Without that step, contractions like `don't` in the list never
+match the `dont` produced by the tokenizer, and ~45 stop words silently survive
+into every document — inflating document lengths and skewing BM25's length
+normalization.
 
 The index is stored as three pickled structures under `cache/`:
 
@@ -190,3 +238,4 @@ The index is stored as three pickled structures under `cache/`:
 | `index.pkl` | `token → set of doc ids` | inverted index, drives lookups |
 | `docmap.pkl` | `doc id → movie` | retrieves the full record for a result |
 | `term_frequencies.pkl` | `doc id → Counter(token → count)` | term counts, used for scoring |
+| `doc_lengths.pkl` | `doc id → token count` | BM25 length normalization |

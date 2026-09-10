@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo funciona una red neuronal</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    color-scheme:light;
+    --plane:#f9f9f7; --surface:#fcfcfb;
+    --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --line:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --pos:#2a78d6; --neg:#e34948; --on:#1baf7a; --accent:#eb6834;
+    --chip:#eeede8;
+  }
+  @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+    color-scheme:dark;
+    --plane:#0d0d0d; --surface:#1a1a19;
+    --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+    --line:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --pos:#3987e5; --neg:#e66767; --on:#199e70; --accent:#d95926;
+    --chip:#262624;
+  }}
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --plane:#0d0d0d; --surface:#1a1a19;
+    --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+    --line:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --pos:#3987e5; --neg:#e66767; --on:#199e70; --accent:#d95926;
+    --chip:#262624;
+  }
+  body{margin:0;background:var(--plane);color:var(--ink);
+       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55}
+  main{max-width:880px;margin:0 auto;padding:36px 20px 72px}
+  h1{font-size:1.55rem;margin:0 0 6px;letter-spacing:-.01em}
+  .lede{color:var(--ink2);margin:0 0 28px;font-size:.97rem}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+        padding:20px;margin-bottom:22px}
+  h2{font-size:1.02rem;margin:0 0 14px;font-weight:620}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:6px}
+  .lbl{font-size:.82rem;color:var(--muted);margin-right:2px}
+  button{font:inherit;font-size:.86rem;padding:6px 13px;border-radius:8px;cursor:pointer;
+         border:1px solid var(--axis);background:transparent;color:var(--ink2);
+         font-variant-numeric:tabular-nums}
+  button:hover{background:var(--chip)}
+  button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+  .seg{display:inline-flex;border:1px solid var(--axis);border-radius:8px;overflow:hidden}
+  .seg button{border:0;border-radius:0}
+  .seg button+button{border-left:1px solid var(--axis)}
+  svg{display:block;width:100%;height:auto;overflow:visible;margin-top:6px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:12px;font-size:.82rem;color:var(--ink2)}
+  .legend span.k{display:inline-flex;align-items:center;gap:7px}
+  .sw{width:16px;height:3px;border-radius:2px;flex:none}
+  .math{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.83rem;
+        background:var(--chip);border-radius:8px;padding:14px 16px;overflow-x:auto;
+        white-space:pre;color:var(--ink);line-height:1.75}
+  .math b{color:var(--pos);font-weight:600}
+  .math i{color:var(--neg);font-style:normal;font-weight:600}
+  .math u{color:var(--muted);text-decoration:none}
+  .step{margin-bottom:14px}
+  .step:last-child{margin-bottom:0}
+  .steplab{font-size:.8rem;color:var(--muted);margin-bottom:5px}
+  p{margin:0 0 12px;font-size:.93rem;color:var(--ink2)}
+  p:last-child{margin-bottom:0}
+  strong{color:var(--ink);font-weight:620}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em}
+  .verdict{margin-top:14px;font-size:.9rem}
+  .ok{color:var(--on);font-weight:640}
+  .bad{color:var(--neg);font-weight:640}
+</style>
+</head>
+<body>
+<main>
+  <h1>Cómo funciona una red neuronal</h1>
+  <p class="lede">La red del XOR, por dentro. Elige una entrada y sigue los números capa a capa. Compara los pesos aleatorios del principio con los que aprendió después de 20.000 iteraciones.</p>
+
+  <div class="card">
+    <div class="controls">
+      <span class="lbl">Entrada</span>
+      <div class="seg" id="inputs"></div>
+      <span class="lbl" style="margin-left:14px">Pesos</span>
+      <div class="seg" id="phase">
+        <button data-p="inicial">antes de entrenar</button>
+        <button data-p="entrenada" aria-pressed="true">entrenados</button>
+      </div>
+    </div>
+    <div id="net"></div>
+    <div class="legend">
+      <span class="k"><span class="sw" style="background:var(--pos)"></span>peso positivo (activa)</span>
+      <span class="k"><span class="sw" style="background:var(--neg)"></span>peso negativo (apaga)</span>
+      <span class="k"><span class="sw" style="background:var(--muted);opacity:.45"></span>entrada a 0 — no aporta nada</span>
+      <span class="k">grosor = magnitud del peso</span>
+    </div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="card">
+    <h2>La cuenta, número a número</h2>
+    <div id="math"></div>
+  </div>
+
+  <div class="card">
+    <h2>Qué pasó durante el entrenamiento</h2>
+    <div id="loss"></div>
+    <p style="margin-top:12px">El error cae en picado en las primeras 2.000 iteraciones: ahí la red ya ha entendido el problema. Las 18.000 restantes solo pulen decimales.</p>
+  </div>
+
+  <div class="card">
+    <h2>Las tres ideas</h2>
+    <p><strong>Cada flecha es un peso.</strong> Una entrada se multiplica por el peso de su flecha hacia cada neurona. La neurona suma todo lo que le llega, añade su sesgo, y aplasta el resultado entre 0 y 1 con la sigmoide.</p>
+    <p><strong>Las dos neuronas ocultas ven lo mismo pero aprenden distinto.</strong> Reciben las mismas entradas; lo que cambia son sus pesos. Por eso una puede especializarse en detectar una cosa y la otra en otra.</p>
+    <p><strong>Nadie escribió esos números.</strong> Empezaron aleatorios entre −1 y 1. Cambia a «antes de entrenar» y verás que la red contesta ≈0.3 a los cuatro casos: no distingue nada. Los ±7 y ±9 finales salieron de repetir 20.000 veces «mira cuánto te equivocas y muévete un poco en la dirección que reduce el error».</p>
+  </div>
+</main>
+
+<script>
+const D = {"inicial":{"W1":[[-0.250919762305275,0.9014286128198323],[0.4639878836228102,0.1973169683940732]],"b1":[0.0,0.0],"W2":[-0.687962719115127,-0.6880109593275947],"b2":0.0,"cases":[{"x":[0,0],"zh":[0.0,0.0],"h":[0.5,0.5],"zo":-0.6879868392213608,"o":0.33448106041669173,"y":0},{"x":[0,1],"zh":[0.4639878836228102,0.1973169683940732],"h":[0.6139597855544281,0.5491698141179326],"zo":-0.8002162941424003,"o":0.3099792533592749,"y":1},{"x":[1,0],"zh":[-0.250919762305275,0.9014286128198323],"h":[0.43759712722448035,0.711242994500409],"zo":-0.7903934844835792,"o":0.31208418691346185,"y":1},{"x":[1,1],"zh":[0.21306812131753516,1.0987455812139055],"h":[0.5530664228370334,0.750024991519504],"zo":-0.8965144940412471,"o":0.2897672962327275,"y":0}]},"entrenada":{"W1":[[-6.829256765918168,7.017509906915623],[7.027110133472293,-6.810902556262247]],"b1":[3.452280633425734,3.4402845296946634],"W2":[-9.069803039427082,-9.071499929391432],"b2":13.416248919308208,"cases":[{"x":[0,0],"zh":[3.452280633425734,3.4402845296946634],"h":[0.9692990812688084,0.9689400799614298],"zo":-4.16484270105215,"o":0.015294599761540925,"y":0},{"x":[0,1],"zh":[10.479390766898028,-3.370618026567584],"h":[0.9999718909473838,0.033226450581708485],"zo":4.045287079346082,"o":0.9827964636732599,"y":1},{"x":[1,0],"zh":[-3.376976132492434,10.457794436610286],"h":[0.03302281764632658,0.9999712773101291],"zo":4.045499095936812,"o":0.9828000479926904,"y":1},{"x":[1,1],"zh":[3.6501340009798593,3.646891880348039],"h":[0.9746706051751712,0.974590440998086],"zo":-4.264818614649494,"o":0.01385962719849496,"y":0}]},"loss":[[0,0.2862998656081591],[250,0.2499484175648946],[500,0.2497269869095107],[750,0.24897669234689204],[1000,0.24244239065014986],[1250,0.14380515704021316],[1500,0.03666307658188138],[1750,0.01623175947975808],[2000,0.0098226804624228],[2250,0.006891875544502021],[2500,0.005253805129988804],[2750,0.004220549838258567],[3000,0.003514367228529183],[3250,0.0030034772342762243],[3500,0.0026178858027449425],[3750,0.0023171871945335504],[4000,0.00207651472351059],[4250,0.00187976876746821],[4500,0.0017160877417566178],[4750,0.001577889802152235],[5000,0.0014597284818024896],[5250,0.0013575943454639163],[5500,0.0012684728270964118],[5750,0.0011900552469668096],[6000,0.0011205446552742418],[6250,0.0010585221851942465],[6500,0.0010028530620263872],[6750,0.0009526192249474711],[7000,0.0009070701902652336],[7250,0.0008655866585466937],[7500,0.000827653179413163],[7750,0.0007928373554757864],[8000,0.0007607738349988706],[8250,0.0007311518575650215],[8500,0.0007037054677649089],[8750,0.0006782057547027182],[9000,0.0006544546455593476],[9250,0.0006322799027267761],[9500,0.0006115310613740598],[9750,0.0005920761079409101],[10000,0.0005737987469118277],[10250,0.000556596138072225],[10500,0.0005403770126075764],[10750,0.0005250600962170422],[11000,0.0005105727825396671],[11250,0.0004968500118306659],[11500,0.0004838333188483039],[11750,0.0004714700209548055],[12000,0.0004597125229680957],[12250,0.0004485177196762578],[12500,0.0004378464804058682],[12750,0.00042766320281817],[13000,0.0004179354253444966],[13250,0.0004086334894807794],[13500,0.0003997302446296148],[13750,0.0003912007893765884],[14000,0.000383022244069768],[14250,0.0003751735503793538],[14500,0.0003676352941828377],[14750,0.00036038954867486213],[15000,0.000353419735062846],[15250,0.000346710498594994],[15500,0.00034024759799096145],[15750,0.0003340178066177422],[16000,0.0003280088239830485],[16250,0.00032220919631329305],[16500,0.00031660824514844697],[16750,0.0003111960030270101],[17000,0.00030596315545446714],[17250,0.0003009009884518544],[17500,0.0002960013410692677],[17750,0.0002912565623255746],[18000,0.00028665947210109317],[18250,0.00028220332556700935],[18500,0.00027788178078451837],[18750,0.00027368886914952645],[19000,0.0002696189683960608],[19250,0.0002656667779040031],[19500,0.0002618272960853131],[19750,0.0002580957996477417],[20000,0.0002544678245570022]]};
+let phase = 'entrenada', ci = 1;
+const NS = 'http://www.w3.org/2000/svg';
+const el = (t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)if(a[k]!=null)e.setAttribute(k,a[k]);return e;};
+const f = (v,n=2)=>v.toLocaleString('es-ES',{minimumFractionDigits:n,maximumFractionDigits:n});
+
+// ---- botones de entrada
+const inputsBox = document.getElementById('inputs');
+D.entrenada.cases.forEach((c,i)=>{
+  const b=document.createElement('button');
+  b.textContent = `(${c.x[0]}, ${c.x[1]})`;
+  b.onclick = ()=>{ci=i;draw();};
+  inputsBox.appendChild(b);
+});
+document.querySelectorAll('#phase button').forEach(b=>{
+  b.onclick = ()=>{phase=b.dataset.p;draw();};
+});
+
+// ---- geometria de la red
+const W=760,H=330;
+const P = {
+  x:[{x:110,y:110,t:'x₁'},{x:110,y:230,t:'x₂'}],
+  h:[{x:390,y:110,t:'h₁'},{x:390,y:230,t:'h₂'}],
+  o:[{x:660,y:170,t:'y'}]
+};
+const R=27;
+
+function drawNet(){
+  const S=D[phase], c=S.cases[ci];
+  const box=document.getElementById('net'); box.textContent='';
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`});
+
+  // titulos de capa
+  [[110,'entradas'],[390,'capa oculta'],[660,'salida']].forEach(([x,t])=>{
+    const n=el('text',{x,y:32,'text-anchor':'middle',fill:'var(--muted)','font-size':12.5});
+    n.textContent=t; svg.appendChild(n);
+  });
+
+  // flechas entradas -> ocultas
+  for(let i=0;i<2;i++) for(let j=0;j<2;j++){
+    const w=S.W1[i][j], a=P.x[i], b=P.h[j];
+    const live = c.x[i]!==0;
+    svg.appendChild(el('line',{x1:a.x+R,y1:a.y,x2:b.x-R,y2:b.y,
+      stroke: live ? (w>0?'var(--pos)':'var(--neg)') : 'var(--muted)',
+      'stroke-width': Math.min(6,0.6+Math.abs(w)*0.55),
+      'stroke-linecap':'round', opacity: live?1:.28}));
+    const T=0.32, ax=a.x+R, ay=a.y, bx=b.x-R, by=b.y;
+    const mx=ax+(bx-ax)*T, my=ay+(by-ay)*T-7;
+    const t=el('text',{x:mx,y:my,'text-anchor':'middle','font-size':12,
+      fill: live?'var(--ink)':'var(--muted)','font-weight':live?600:400,
+      'font-variant-numeric':'tabular-nums',
+      stroke:'var(--surface)','stroke-width':4,'paint-order':'stroke','stroke-linejoin':'round'});
+    t.textContent=f(w); svg.appendChild(t);
+  }
+  // flechas ocultas -> salida
+  for(let j=0;j<2;j++){
+    const w=S.W2[j], a=P.h[j], b=P.o[0];
+    svg.appendChild(el('line',{x1:a.x+R,y1:a.y,x2:b.x-R,y2:b.y,
+      stroke:w>0?'var(--pos)':'var(--neg)',
+      'stroke-width':Math.min(6,0.6+Math.abs(w)*0.55),'stroke-linecap':'round'}));
+    const t=el('text',{x:(a.x+b.x)/2,y:(a.y+b.y)/2+(j===0?-10:16),'text-anchor':'middle',
+      'font-size':12,fill:'var(--ink)','font-weight':600,'font-variant-numeric':'tabular-nums',
+      stroke:'var(--surface)','stroke-width':4,'paint-order':'stroke','stroke-linejoin':'round'});
+    t.textContent=f(w); svg.appendChild(t);
+  }
+
+  // nodos
+  const node=(p,val,sub,strong)=>{
+    const g=el('g',{});
+    g.appendChild(el('circle',{cx:p.x,cy:p.y,r:R,
+      fill:'var(--surface)',stroke:'var(--axis)','stroke-width':1.5}));
+    g.appendChild(el('circle',{cx:p.x,cy:p.y,r:R,
+      fill:'var(--pos)','fill-opacity':Math.max(0,Math.min(1,val))*0.30,stroke:'none'}));
+    const v=el('text',{x:p.x,y:p.y+5,'text-anchor':'middle','font-size':13.5,
+      'font-weight':650,fill:'var(--ink)','font-variant-numeric':'tabular-nums'});
+    v.textContent = strong ? String(val) : f(val);
+    g.appendChild(v);
+    const n=el('text',{x:p.x,y:p.y-R-9,'text-anchor':'middle','font-size':12.5,fill:'var(--ink2)'});
+    n.textContent=p.t; g.appendChild(n);
+    if(sub){
+      const s=el('text',{x:p.x,y:p.y+R+17,'text-anchor':'middle','font-size':11.5,fill:'var(--muted)'});
+      s.textContent=sub; g.appendChild(s);
+    }
+    svg.appendChild(g);
+  };
+  node(P.x[0], c.x[0], null, true);
+  node(P.x[1], c.x[1], null, true);
+  node(P.h[0], c.h[0], `sesgo ${f(S.b1[0])}`);
+  node(P.h[1], c.h[1], `sesgo ${f(S.b1[1])}`);
+  node(P.o[0], c.o, `sesgo ${f(S.b2)}`);
+
+  box.appendChild(svg);
+
+  const okv = Math.round(c.o)===c.y;
+  document.getElementById('verdict').innerHTML =
+    `La red responde <strong>${f(c.o,3)}</strong> y debería dar <strong>${c.y}</strong> — ` +
+    (phase==='inicial'
+      ? `<span class="bad">todavía no ha aprendido nada</span>. Prueba las cuatro entradas: contesta casi lo mismo a todas.`
+      : (okv?`<span class="ok">correcto</span>.`:`<span class="bad">incorrecto</span>.`));
+}
+
+function drawMath(){
+  const S=D[phase], c=S.cases[ci];
+  const P2=(v)=>f(v,3);
+  const wsign=(w)=>w<0?`<i>${f(w,3)}</i>`:`<b>${f(w,3)}</b>`;
+  const html = [
+    ['1. Neurona oculta h₁ — suma lo que le llega por sus dos flechas',
+      `z  = ${c.x[0]} × ${wsign(S.W1[0][0])}  +  ${c.x[1]} × ${wsign(S.W1[1][0])}  +  <u>${f(S.b1[0],3)}</u>
+   = ${P2(c.zh[0])}
+h₁ = sigmoid(${P2(c.zh[0])}) = ${P2(c.h[0])}`],
+    ['2. Neurona oculta h₂ — mismas entradas, otros pesos',
+      `z  = ${c.x[0]} × ${wsign(S.W1[0][1])}  +  ${c.x[1]} × ${wsign(S.W1[1][1])}  +  <u>${f(S.b1[1],3)}</u>
+   = ${P2(c.zh[1])}
+h₂ = sigmoid(${P2(c.zh[1])}) = ${P2(c.h[1])}`],
+    ['3. Salida — ahora las entradas son h₁ y h₂',
+      `z  = ${P2(c.h[0])} × ${wsign(S.W2[0])}  +  ${P2(c.h[1])} × ${wsign(S.W2[1])}  +  <u>${f(S.b2,3)}</u>
+   = ${P2(c.zo)}
+y  = sigmoid(${P2(c.zo)}) = ${P2(c.o)}`]
+  ].map(([lab,body])=>`<div class="step"><div class="steplab">${lab}</div><div class="math">${body}</div></div>`).join('');
+  document.getElementById('math').innerHTML = html;
+}
+
+function drawLoss(){
+  const box=document.getElementById('loss'); box.textContent='';
+  const w=760,h=200,m={t:14,r:16,b:38,l:56};
+  const pw=w-m.l-m.r, ph=h-m.t-m.b;
+  const pts=D.loss, xmax=20000, ymax=0.3;
+  const sx=v=>m.l+v/xmax*pw, sy=v=>m.t+(1-v/ymax)*ph;
+  const svg=el('svg',{viewBox:`0 0 ${w} ${h}`});
+  [0,0.1,0.2,0.3].forEach(t=>{
+    svg.appendChild(el('line',{x1:m.l,x2:m.l+pw,y1:sy(t),y2:sy(t),stroke:'var(--line)','stroke-width':1}));
+    const l=el('text',{x:m.l-10,y:sy(t)+4,'text-anchor':'end','font-size':11.5,fill:'var(--muted)'});
+    l.textContent=t.toFixed(1); svg.appendChild(l);
+  });
+  [0,5000,10000,15000,20000].forEach(t=>{
+    const l=el('text',{x:sx(t),y:m.t+ph+20,'text-anchor':'middle','font-size':11.5,fill:'var(--muted)'});
+    l.textContent=t.toLocaleString('es-ES'); svg.appendChild(l);
+  });
+  const lx=el('text',{x:m.l+pw/2,y:h-4,'text-anchor':'middle','font-size':12,fill:'var(--ink2)'});
+  lx.textContent='iteraciones de entrenamiento'; svg.appendChild(lx);
+  const ly=el('text',{'text-anchor':'middle','font-size':12,fill:'var(--ink2)',
+    transform:`translate(14,${m.t+ph/2}) rotate(-90)`});
+  ly.textContent='error'; svg.appendChild(ly);
+  let d='';
+  pts.forEach(([x,y],i)=>{d+=(i?'L':'M')+sx(x).toFixed(1)+' '+sy(Math.min(y,ymax)).toFixed(1)+' ';});
+  svg.appendChild(el('path',{d:d.trim(),fill:'none',stroke:'var(--accent)','stroke-width':2,
+    'stroke-linecap':'round','stroke-linejoin':'round'}));
+  box.appendChild(svg);
+}
+
+function draw(){
+  document.querySelectorAll('#inputs button').forEach((b,i)=>b.setAttribute('aria-pressed', i===ci));
+  document.querySelectorAll('#phase button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.p===phase));
+  drawNet(); drawMath();
+}
+draw(); drawLoss();
+</script>
+</body>
+</html>

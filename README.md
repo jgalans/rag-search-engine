@@ -6,6 +6,8 @@ A search engine built as part of the [Retrieval Augmented Generation course](htt
 
 This project is a hands-on implementation of a RAG (Retrieval Augmented Generation) system in Python, covering keyword search, tokenization, stop words, stemming, vector embeddings, and more.
 
+It has two halves. **Keyword search** (`cli/keyword_search_cli.py`) ranks documents by how their words match the query — TF-IDF and BM25, built from scratch. **Semantic search** (`cli/semantic_search_cli.py`) compares meaning instead of words, using vector embeddings. The two are complementary, and the end goal is to combine them.
+
 The dataset is a collection of 5.000 movies (`data/movies.json`), each with a title and a description.
 
 ## Setup
@@ -14,9 +16,10 @@ The dataset is a collection of 5.000 movies (`data/movies.json`), each with a ti
 uv sync
 ```
 
-## Usage
+The embedding model (~80 MB) downloads automatically the first time a semantic
+search command runs, and is cached locally afterwards.
 
-All commands run through the CLI entrypoint:
+## Keyword search
 
 ```bash
 uv run cli/keyword_search_cli.py <command> [args]
@@ -220,7 +223,35 @@ Contrast this with `search`, which returns the first five documents containing
 any query token, in index order. Same index, same tokens — but `bm25search`
 answers "which of these are most relevant?" instead of "which of these match?".
 
-## How it works
+## Semantic search
+
+Instead of matching words, this half compares *meaning*. Each text is turned into
+a 384-dimension vector by [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2),
+and similar meanings land close together — so a query for `robot` can match a
+synopsis that only ever says `cyborg`, which BM25 cannot do.
+
+```bash
+uv run cli/semantic_search_cli.py <command> [args]
+```
+
+### `verify`
+
+Loads the embedding model and prints its configuration. Useful as a first check
+that the model downloaded and runs on this machine.
+
+```bash
+uv run cli/semantic_search_cli.py verify
+```
+
+```
+Model loaded: SentenceTransformer(...)
+Max sequence length: 256
+```
+
+That sequence length matters: anything past 256 word pieces is silently
+truncated, and many synopses in the dataset are longer than that.
+
+## How keyword search works
 
 Queries and documents go through the same pipeline before being compared:
 lowercasing → punctuation removal → stop word filtering (`data/stopwords.txt`) → stemming (Porter).

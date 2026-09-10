@@ -11,4 +11,5 @@ wheels/
 
 # Data files
 /data/
+/cache/
 .DS_Store

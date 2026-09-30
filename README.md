@@ -6,7 +6,7 @@ A search engine built as part of the [Retrieval Augmented Generation course](htt
 
 This project is a hands-on implementation of a RAG (Retrieval Augmented Generation) system in Python, covering keyword search, tokenization, stop words, stemming, vector embeddings, and more.
 
-It has two halves. **Keyword search** (`cli/keyword_search_cli.py`) ranks documents by how their words match the query — TF-IDF and BM25, built from scratch. **Semantic search** (`cli/semantic_search_cli.py`) compares meaning instead of words, using vector embeddings. The two are complementary, and the end goal is to combine them.
+It has two halves. **Keyword search** (`cli/keyword_search_cli.py`) ranks documents by how their words match the query — TF-IDF and BM25, built from scratch. **Semantic search** (`cli/semantic_search_cli.py`) compares meaning instead of words, using vector embeddings — currently under construction. The two are complementary, and the end goal is to combine them.
 
 The dataset is a collection of 5.000 movies (`data/movies.json`), each with a title and a description.
 
@@ -18,6 +18,36 @@ uv sync
 
 The embedding model (~80 MB) downloads automatically the first time a semantic
 search command runs, and is cached locally afterwards.
+
+## Data
+
+The `data/` directory is not tracked in this repository. Two files are expected:
+
+**`data/movies.json`** — the movie collection, in this shape:
+
+```json
+{
+  "movies": [
+    {
+      "id": 1,
+      "title": "Kaakha..Kaakha: The Police",
+      "description": "A badly injured Anbuselvan is lying on the bank of a stream..."
+    }
+  ]
+}
+```
+
+**`data/stopwords.txt`** — one stop word per line, contractions included:
+
+```
+a
+about
+aren't
+```
+
+Both files come from the [Boot.dev RAG course](https://www.boot.dev/courses/learn-retrieval-augmented-generation),
+which provides them in its first chapter. Any dataset matching the shape above
+works — only `id`, `title` and `description` are read.
 
 ## Keyword search
 
@@ -225,9 +255,12 @@ answers "which of these are most relevant?" instead of "which of these match?".
 
 ## Semantic search
 
-Instead of matching words, this half compares *meaning*. Each text is turned into
-a 384-dimension vector by [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2),
-and similar meanings land close together — so a query for `robot` can match a
+> **Work in progress.** The embedding model is wired up and can vectorize text;
+> searching over those vectors is not implemented yet.
+
+Where keyword search matches words, this half will compare *meaning*. Each text
+becomes a 384-dimension vector via [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2),
+and similar meanings land close together — so a query for `robot` could match a
 synopsis that only ever says `cyborg`, which BM25 cannot do.
 
 ```bash
@@ -250,6 +283,25 @@ Max sequence length: 256
 
 That sequence length matters: anything past 256 word pieces is silently
 truncated, and many synopses in the dataset are longer than that.
+
+### `embed_text`
+
+Turns a single string into its embedding and prints the first few values. Empty
+or whitespace-only input raises a `ValueError`.
+
+```bash
+uv run cli/semantic_search_cli.py embed_text "a movie about a cyborg"
+```
+
+```
+Text: a movie about a cyborg
+First 3 dimensions: [-0.0234  0.0891 -0.0412]
+Dimensions: 384
+```
+
+The 384 numbers carry no individual meaning — no single position stands for
+"robots". Only the *relative* position of one vector to another does, which is
+what makes similarity comparisons possible.
 
 ## How keyword search works
 
